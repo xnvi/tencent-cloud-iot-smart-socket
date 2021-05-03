@@ -1,0 +1,216 @@
+{
+	"version": "1.0",
+	"properties": [
+		{
+			"id": "power_switch",
+			"name": "电源开关",
+			"desc": "控制插座电源",
+			"required": true,
+			"mode": "rw",
+			"define": {
+				"type": "bool",
+				"mapping": {
+					"0": "关",
+					"1": "开"
+				}
+			}
+		},
+		{
+			"id": "current",
+			"name": "电流",
+			"desc": "",
+			"mode": "r",
+			"define": {
+				"type": "float",
+				"min": "0",
+				"max": "20",
+				"start": "0",
+				"step": "1",
+				"unit": "A"
+			},
+			"required": false
+		},
+		{
+			"id": "voltage",
+			"name": "电压",
+			"desc": "",
+			"mode": "r",
+			"define": {
+				"type": "float",
+				"min": "0",
+				"max": "400",
+				"start": "0",
+				"step": "1",
+				"unit": "V"
+			},
+			"required": false
+		},
+		{
+			"id": "power_factor",
+			"name": "功率因数",
+			"desc": "",
+			"mode": "r",
+			"define": {
+				"type": "float",
+				"min": "0",
+				"max": "1",
+				"start": "0",
+				"step": "0.01",
+				"unit": ""
+			},
+			"required": false
+		},
+		{
+			"id": "active_power",
+			"name": "有功功率",
+			"desc": "",
+			"mode": "r",
+			"define": {
+				"type": "float",
+				"min": "0",
+				"max": "4000",
+				"start": "0",
+				"step": "1",
+				"unit": "W"
+			},
+			"required": false
+		},
+		{
+			"id": "apparent_power",
+			"name": "视在功率",
+			"desc": "",
+			"mode": "r",
+			"define": {
+				"type": "float",
+				"min": "0",
+				"max": "4000",
+				"start": "0",
+				"step": "1",
+				"unit": "VA"
+			},
+			"required": false
+		},
+		{
+			"id": "total_kwh",
+			"name": "累计电量",
+			"desc": "",
+			"mode": "r",
+			"define": {
+				"type": "float",
+				"min": "0",
+				"max": "10000",
+				"start": "0",
+				"step": "1",
+				"unit": "kWh"
+			},
+			"required": false
+		},
+		{
+			"id": "count_down",
+			"name": "倒计时",
+			"desc": "倒计时",
+			"mode": "rw",
+			"define": {
+				"type": "int",
+				"min": "0",
+				"max": "86400",
+				"start": "0",
+				"step": "1",
+				"unit": "秒"
+			},
+			"required": false
+		}
+	],
+	"events": [
+		{
+			"id": "status_report",
+			"name": "DeviceStatus",
+			"desc": "Report the device status",
+			"type": "info",
+			"required": false,
+			"params": [
+				{
+					"id": "status",
+					"name": "running_state",
+					"desc": "Report current device running state",
+					"define": {
+						"type": "bool",
+						"mapping": {
+							"0": "normal",
+							"1": "fault"
+						}
+					}
+				},
+				{
+					"id": "message",
+					"name": "Message",
+					"desc": "Some extra message",
+					"define": {
+						"type": "string",
+						"min": "0",
+						"max": "64"
+					}
+				}
+			]
+		},
+		{
+			"id": "low_voltage",
+			"name": "LowVoltage",
+			"desc": "Alert for device voltage is low",
+			"type": "alert",
+			"required": false,
+			"params": [
+				{
+					"id": "voltage",
+					"name": "Voltage",
+					"desc": "Current voltage",
+					"define": {
+						"type": "float",
+						"unit": "V",
+						"step": "1",
+						"min": "0.0",
+						"max": "24.0",
+						"start": "1"
+					}
+				}
+			]
+		},
+		{
+			"id": "hardware_fault",
+			"name": "Hardware_fault",
+			"desc": "Report hardware fault",
+			"type": "fault",
+			"required": false,
+			"params": [
+				{
+					"id": "name",
+					"name": "Name",
+					"desc": "Name like: memory,tf card, censors ...",
+					"define": {
+						"type": "string",
+						"min": "0",
+						"max": "64"
+					}
+				},
+				{
+					"id": "error_code",
+					"name": "Error_Code",
+					"desc": "Error code for fault",
+					"define": {
+						"type": "int",
+						"unit": "",
+						"step": "1",
+						"min": "0",
+						"max": "2000",
+						"start": "1"
+					}
+				}
+			]
+		}
+	],
+	"actions": [],
+	"profile": {
+		"ProductId": "HRDG3CKWWZ",
+		"CategoryId": "142"
+	}
+}
