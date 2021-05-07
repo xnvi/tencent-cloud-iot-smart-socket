@@ -17,9 +17,13 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include "stm32f1xx_hal.h"		
+#include "stm32g0xx_hal.h"
 #include "qcloud_iot_api_export.h"
 
+#include "tos_k.h"
+// #include "tos_task.h"
+// #include "user_config.h"
+#include "user_utils.h"
 
 #ifdef  DEBUG_DEV_INFO_USED
 
@@ -77,74 +81,152 @@ int HAL_Vsnprintf(_IN_ char *str, _IN_ const int len, _IN_ const char *format, v
 
 void HAL_DelayUs(_IN_ uint32_t us)
 {
-    HAL_Delay(us);
+	delay_us(us);
 }
 
 uint32_t HAL_GetTimeMs(void)
-{	
+{
     return HAL_GetTick();
 }
 
 uint32_t HAL_GetTimeSeconds(void)
-{	
+{
     return HAL_GetTimeMs()/1000;
 }
 
 
 void HAL_DelayMs(_IN_ uint32_t ms)
 {
-   (void)HAL_Delay(ms);
+	(void)HAL_Delay(ms);
 }
 
 #ifdef OS_USED
+
+// 实际使用中AT SDK一共创建2个任务
+#define AT_SDK_TASK_NUM 2
+#define AT_SDK_TASK_NAME_LEN 16
+
+char task_name_list[AT_SDK_TASK_NUM][AT_SDK_TASK_NAME_LEN];
+k_task_t *task_list[AT_SDK_TASK_NUM];
+	
 void hal_thread_create(volatile void* threadId, uint16_t stackSize, int Priority, void (*fn)(void*), void* arg)
 {
-	osThreadDef(parseTask, (os_pthread)fn, (osPriority)Priority, 0, stackSize);
-	threadId = osThreadCreate(osThread(parseTask), arg);
-	(void)threadId; //Eliminate warning
+	int i = 0;
+	k_err_t err;
+
+	for(i=0; i<AT_SDK_TASK_NUM; i++)
+	{
+		if(task_list[i] == NULL)
+		{
+			break;
+		}
+	}
+
+	sprintf(&task_name_list[i][0], "at_task_%d", i);
+
+	err = tos_task_create_dyn((k_task_t **)threadId,
+								&task_name_list[i][0],
+								(k_task_entry_t)fn,
+								arg,
+								// 4,
+								Priority,
+								stackSize,
+								0);
+	if (err != K_ERR_NONE)
+	{
+		printf("hal_thread_create err, ret %d\n", err);
+	}
+	task_list[i] = (k_task_t *)threadId;
 }
 
 void hal_thread_destroy(void* threadId)
 {
-	osThreadTerminate(threadId);
+	k_err_t err;
+	int i = 0;
+
+	for(i=0; i<AT_SDK_TASK_NUM; i++)
+	{
+		if(task_list[i] == threadId)
+		{
+			task_list[i] = NULL;
+			memset(&task_name_list[i][0], 0, AT_SDK_TASK_NAME_LEN);
+			break;
+		}
+	}
+
+	err = tos_task_destroy(threadId);
+	if (err != K_ERR_NONE)
+	{
+		printf("hal_thread_destroy err, ret %d\n", err);
+	}
 }
 
 void HAL_SleepMs(_IN_ uint32_t ms)
 {
-   (void)osDelay(ms);
+	k_tick_t delay;
+	delay = tos_millisec2tick(ms);
+	tos_task_delay(delay);
+	// (void)HAL_Delay(ms);
 }
 
 void *HAL_Malloc(_IN_ uint32_t size)
 {
-	return pvPortMalloc( size);
+	return tos_mmheap_alloc(size);
 }
 
 void HAL_Free(_IN_ void *ptr)
 {
-    vPortFree(ptr);
+	tos_mmheap_free(ptr);
 }
+
+
+// 锁的数量请根据实际情况修改
+#define LOCK_NUM 4
+k_mutex_t lock_list[LOCK_NUM];
+unsigned char lock_index[LOCK_NUM] = {0};
 
 void *HAL_MutexCreate(void)
 {
-	return (void *)osMutexCreate (NULL);
-}
+	k_err_t err;
+	int i = 0;
+	for(i=0; i<LOCK_NUM; i++)
+	{
+		if(lock_index[i] == 0)
+		{
+			lock_index[i] = 1;
+			break;
+		}
+	}
 
+	if(i >= LOCK_NUM)
+	{
+		return NULL;
+	}
+	
+	err = tos_mutex_create(&lock_list[i]);
+    return err == K_ERR_NONE ? &lock_list[i] : NULL;
+}
 
 void HAL_MutexDestroy(_IN_ void * mutex)
 {
-	osStatus ret;
-	
-    if(osOK != (ret = osMutexDelete((osMutexId)mutex)))
-    {
-		HAL_Printf("HAL_MutexDestroy err, err:%d\n\r",ret);
+	int i = 0;
+	for(i=0; i<LOCK_NUM; i++)
+	{
+		if(&lock_list[i] == mutex)
+		{
+			lock_index[i] = 0;
+			break;
+		}
 	}
+
+	tos_mutex_destroy((k_mutex_t *)mutex);
 }
 
 void HAL_MutexLock(_IN_ void * mutex)
 {
-	osStatus ret;
-
-	if(osOK != (ret = osMutexWait((osMutexId)mutex, osWaitForever)))
+	k_err_t ret;
+	ret = tos_mutex_pend_timed((k_mutex_t *)mutex, TOS_TIME_FOREVER);
+	if(ret)
 	{
 		HAL_Printf("HAL_MutexLock err, err:%d\n\r",ret);
 	}
@@ -152,9 +234,9 @@ void HAL_MutexLock(_IN_ void * mutex)
 
 void HAL_MutexUnlock(_IN_ void * mutex)
 {
-	osStatus ret;
-
-	if(osOK != (ret = osMutexRelease((osMutexId)mutex)))
+	k_err_t ret;
+	ret = tos_mutex_post((k_mutex_t *)mutex);
+	if(ret)
 	{
 		HAL_Printf("HAL_MutexUnlock err, err:%d\n\r",ret);
 	}	

@@ -12,15 +12,19 @@
  ******************************************************************************
  */
 #include <string.h>
-#include "stm32f1xx_hal.h"
-#include "stm32f1xx_it.h"
+// #include "stm32f1xx_hal.h"
+// #include "stm32f1xx_it.h"
+// #include "stm32g0xx_hal.h"
+// #include "stm32g0xx_it.h"
+#include "stm32g0xx_ll_usart.h"
 #include "ringbuff.h"
 #include "at_log.h"
 #include "hal_export.h"
 
+extern sRingbuff g_ring_buff;
 
-
-
+// 串口接收相关内容见 stm32g0xx_it.c 中 USART2_IRQHandler()
+#if 0
 #define AT_UART_IRQHandler           USART3_IRQHandler
 
 extern UART_HandleTypeDef huart3;
@@ -28,8 +32,6 @@ static UART_HandleTypeDef *pAtUart = &huart3;
 
 /*uart data recv buff which used by at_client*/
 extern  sRingbuff 	  g_ring_buff;
-
-
 
 /**
 * @brief This function handles AT UART global interrupt,push recv char to ringbuff.
@@ -48,6 +50,7 @@ void AT_UART_IRQHandler(void)
 	}
 	__HAL_UART_CLEAR_PEFLAG(pAtUart);
 }
+#endif
 
 /**
  *pdata: pointer of data for send
@@ -57,6 +60,7 @@ void AT_UART_IRQHandler(void)
  */
 int at_send_data(uint8_t *pdata, uint16_t len)
 {
+#if 0
 	if(HAL_OK == HAL_UART_Transmit(pAtUart, pdata, len, 0xFFFF))
 	{
 		return len;
@@ -64,7 +68,17 @@ int at_send_data(uint8_t *pdata, uint16_t len)
 	else
 	{
 		return 0;
-	}	
+	}
+#endif
+
+	// 串口发送这里改用LL库实现
+	int i;
+	for(i = 0; i < len; i++)
+	{		
+		while(LL_USART_IsActiveFlag_TXE_TXFNF(USART2) == 0); // 等待数据发送寄存器空
+		LL_USART_TransmitData8(USART2, pdata[i]); // 写入要发送的数据
+	}
+	return len;
 }
 
 
@@ -76,7 +90,7 @@ extern void AT_Uart_Init(void);
 int module_power_on(void)
 {
 	Log_e("module power on is not implement");
-	AT_Uart_Init();
+	// AT_Uart_Init();
 	HAL_DelayMs(100);
 	
 #ifdef 	MODULE_TYPE_ESP8266
