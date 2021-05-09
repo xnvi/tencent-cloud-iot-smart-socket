@@ -32,10 +32,10 @@ key_data key_hw_read(key_data key_num)
 	{
 	case 0:
 		return !(KEY_1_GPIO);
-		break;
+		// break;
 	default:
 		return 0;
-		break;
+		// break;
 	}
 }
 

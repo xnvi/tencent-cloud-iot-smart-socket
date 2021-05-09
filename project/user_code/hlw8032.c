@@ -209,17 +209,17 @@ void hlw8032_recv(uint8_t dat)
 
 void hlw8032_get_info(electric_info *p_info)
 {
-	// printf("sta 0x%x, chk 0x%x, vp 0x%x, v 0x%x, cp 0x%x, c 0x%x, pp 0x%x, p 0x%x, du 0x%x, pf 0x%x \r\n",
-	// 	reg.state, reg.check,
-	// 	reg.voltage_param, reg.voltage,
-	// 	reg.current_param, reg.current,
-	// 	reg.power_param, reg.power,
-	// 	reg.data_updata, reg.pf);
+	printf("sta 0x%x, chk 0x%x, vp 0x%x, v 0x%x, cp 0x%x, c 0x%x, pp 0x%x, p 0x%x, du 0x%x, pf 0x%x \r\n",
+		reg.state, reg.check,
+		reg.voltage_param, reg.voltage,
+		reg.current_param, reg.current,
+		reg.power_param, reg.power,
+		reg.data_updata, reg.pf);
 
-	// printf("c %f, v %f, pf %f, p %f, ap %f, wh %d \r\n",
-	// info.current, info.voltage, info.power_factor, info.active_power, info.apparent_power, info.total_wh);
+	printf("c %f, v %f, pf %f, p %f, ap %f, wh %d \r\n",
+	info.current, info.voltage, info.power_factor, info.active_power, info.apparent_power, info.total_wh);
 
-	// printf("\r\n\r\n");
+	printf("\r\n\r\n");
 
 	memcpy(p_info, &info, sizeof(electric_info));
 

@@ -11,135 +11,14 @@
 #include "hlw8032.h"
 #include "key.h"
 #include "ws2812_driver.h"
-#include "at_client.h"
 
 uint32_t g_do_upload_property = 0;
 electric_info g_power_info = {0.0, 0.0, 0.0, 0.0, 0.0, 0};
 uint32_t g_switch = 0;
 uint32_t g_count_down = 0;
 uint32_t g_count_down_update = 0;
-
-// const uint8_t product_info[128]__attribute__((at(0x0801b000))) = "this is test product_info 0123456789";
-
-
-// void user_task(void *arg);
-
-// #define USER_TASK_STACK_SIZE 1024
-// k_stack_t user_task_stack[USER_TASK_STACK_SIZE];
-// k_task_t user_task_t;
-
-// void start_user_task(void *arg)
-// {
-// 	tos_task_create(&user_task_t,
-// 					"user_task",
-// 					(k_task_entry_t)user_task,
-// 					arg,
-// 					4,
-// 					user_task_stack,
-// 					USER_TASK_STACK_SIZE,
-// 					0);
-// }
-
-
-
-
-
-void wifi_config(void)
-{
-	int i;
-	// int result = QCLOUD_RET_SUCCESS;
-	at_response_t resp = NULL;
-	// uint8_t key = 0; // TODO 读取按键退出配网
-
-	g_do_upload_property = 0;
-
-	tos_sleep_ms(3000);
-
-	// 改成闪灯
-	// CleanScreen();
-	// DrawPic(0, 0, 128, 32, (uint8_t *)wifi_config_pic1);
-	// RefreshFullScreen();
-
-	resp = at_create_resp(64, 0, 2000);
-
-	// TODO 配网的流程还不太合理，但是目前可以使用
-
-	// if(QCLOUD_RET_SUCCESS != at_exec_cmd(resp, "AT+TCMQTTSTATE?"))
-	// {
-	// 	printf("cmd AT+TCMQTTSTATE exec err");
-	// 	result = QCLOUD_ERR_FAILURE;
-	// }
-	// printf("TCMQTTSTATE ret lines %d\r\n", resp->line_counts);
-	// printf("%s", resp->buf);
-	// for (int i = 0; i < resp->line_counts - 1; i++)
-	// {
-	//     printf("%s\r\n", at_resp_get_line(resp, i + 1));
-	// }
-	// printf("TCMQTTSTATE end\r\n", resp->line_counts);
-
-	if(QCLOUD_RET_SUCCESS != at_exec_cmd(resp, "AT+TCMQTTDISCONN"))
-	{
-		printf("cmd AT+TCMQTTDISCONN exec err");
-		// result = QCLOUD_ERR_FAILURE;
-	}
-
-	if(QCLOUD_RET_SUCCESS != at_exec_cmd(resp, "AT+CWQAP"))
-	{
-		printf("cmd AT+CWQAP exec err");
-		// result = QCLOUD_ERR_FAILURE;
-	}
-	
-	if(QCLOUD_RET_SUCCESS != at_exec_cmd(resp, "AT+TCSTARTSMART"))
-	{
-		printf("cmd AT+TCSTARTSMART exec err");
-		// result = QCLOUD_ERR_FAILURE;
-	}
-
-	tos_sleep_ms(3000);
-
-	// 等待串口收到下面这个，说明配网完成
-	// Smartconfig connected Wi-Fi
-
-	// 改成闪灯
-	// DrawPic(0, 0, 128, 32, (uint8_t *)wifi_config_pic2);
-	// RefreshFullScreen();
-	// tos_sleep_ms(3000);
-
-	// 等待60秒，结束配网
-	// CleanScreen();
-	for(i=0; i<600; i++)
-	{
-		// key = ReadEncoderKey();
-		// if(key == ENCODER_KEY_RELEASE)
-		// {
-		// 	break;
-		// }
-
-		// 改成闪灯
-		// sprintf(&menu_line1[0], "配网中，请稍等 %02d", 60 - i / 10);
-		// PrintString12(0, 0, menu_line1);
-		// PrintString12(0, 14, "单击旋钮返回");
-		// RefreshFullScreen();
-		tos_sleep_ms(70);
-	}
-
-	if(QCLOUD_RET_SUCCESS != at_exec_cmd(resp, "AT+TCSTOPSMART"))
-	{
-		// printf("cmd AT+TCSTARTSMART exec err");
-		// result = QCLOUD_ERR_FAILURE;
-	}
-
-	if(resp)
-	{
-		at_delete_resp(resp);
-	}
-
-	// 配网无论成功与否都会系统复位
-	HAL_NVIC_SystemReset();
-}
-
-
-
+uint32_t g_overcurrent_event = 0;
+static uint32_t g_overcurrent_lock = 0;
 
 
 void user_task(void *arg)
@@ -167,28 +46,20 @@ void user_task(void *arg)
 	wh_timer_old = HAL_GetTick();
 	power_timer_old = HAL_GetTick();
 	g_do_upload_property = 1;
+
 	while (1)
 	{
-		color = color_ring(i);
-		color = color & 0x00f0f0f0;
-		color = color >> 4;
-		ws2812_write_color_u32(color);
-		
-		i += 1;
-		if (i >= 1536)
-		{
-			i = 0;
-		}
-		// HAL_Delay(5);
-
-
+		// 每隔一定时间读取新的电力信息
 		if (HAL_GetTick() - power_timer_old > 2000)
 		{
 			power_timer_old = HAL_GetTick();
 			hlw8032_get_info(&g_power_info);
+			// if (g_power_info.active_power < 1200.0)
+			// {
+			// 	g_power_info.active_power += 0.1;
+			// }
 		}
 
-		
 		// 保存累计电力，延长flash寿命，只有每分钟且用电量变化时才写入
 		// if (HAL_GetTick() - wh_timer_old > 60 * 1000 && total_wh != g_power_info.total_wh)
 		if (0)
@@ -197,7 +68,6 @@ void user_task(void *arg)
 			total_wh = g_power_info.total_wh;
 			save_wh(total_wh);
 		}
-
 
 		key = key_read();
 		// key = key_hw_read(0);
@@ -231,6 +101,20 @@ void user_task(void *arg)
 			{
 				// 恢复出厂设置
 				printf("config reset\r\n");
+				// erase_wh();
+				ws2812_write_color_u32(0x00000000);
+				HAL_Delay(500);
+				ws2812_write_color_u32(0x00FFFFFF);
+				HAL_Delay(500);
+				ws2812_write_color_u32(0x00000000);
+				HAL_Delay(500);
+				ws2812_write_color_u32(0x00FFFFFF);
+				HAL_Delay(500);
+				ws2812_write_color_u32(0x00000000);
+				HAL_Delay(500);
+				ws2812_write_color_u32(0x00FFFFFF);
+				HAL_Delay(500);
+				ws2812_write_color_u32(0x00000000);
 			}
 			else
 			{
@@ -251,6 +135,52 @@ void user_task(void *arg)
 		{
 			g_count_down_update = 0;
 			g_switch = !g_switch;
+		}
+
+		// 电流超过5A强制断电，设置4.9为了更保险一点
+		if (g_power_info.current > 4.9)
+		// if(HAL_GetTick() > 60000 && HAL_GetTick() < 63000)
+		{
+			g_switch = 0;
+			// 使用 DeviceStatus 事件发送告警信息
+			// 信息内容为 "overcurrent"
+			g_overcurrent_event = 1;
+			g_overcurrent_lock = 1;
+		}
+
+		// 过流以后一直闪红灯，直到再次打开开关
+		if (g_overcurrent_lock)
+		{
+			ws2812_write_color_u32(0x00FF0000);
+			HAL_Delay(500);
+			ws2812_write_color_u32(0x00000000);
+			HAL_Delay(500);
+			if (g_switch)
+			{
+				g_overcurrent_lock = 0;
+			}
+		}
+		else
+		{
+			// 通过呼吸灯的颜色来表示功率
+			if(g_switch)
+			{
+				// 色环0-1536，颜色依次是红黄绿青蓝紫红
+				// 0红，255黄，512绿，768青，1024蓝，1280紫，1536红
+				if (g_power_info.active_power > 850.0)
+				{
+					color_breathe(0x00FF0000);
+				}
+				else
+				{
+					color = color_ring(850 - (int)g_power_info.active_power);
+					color_breathe(color);
+				}
+			}
+			else
+			{
+				ws2812_write_color_u32(0x0000FF00);
+			}
 		}
 
 		// 设置继电器状态
