@@ -857,12 +857,13 @@ eAtResault at_client_init(at_client_t pClient)
 		//pClient->status = AT_STATUS_INITIALIZED;
 		
 #ifdef OS_USED	
-		osThreadId threadId;
+		// osThreadId threadId;
+		void *threadId;
 		//	Parser Func should run in a separate thread
 		if(NULL != pClient->parser)
 		{
 			//pClient->parser(pClient, NULL);
-			hal_thread_create(&threadId, PARSE_THREAD_STACK_SIZE, osPriorityNormal, pClient->parser, pClient);
+			hal_thread_create(&threadId, PARSE_THREAD_STACK_SIZE, 4, pClient->parser, pClient);
 		}	
 #endif
 	}

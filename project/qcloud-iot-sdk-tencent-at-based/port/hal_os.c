@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include "stm32g0xx_hal.h"
+#include "stm32g0xx_hal.h"		
 #include "qcloud_iot_api_export.h"
 
 #include "tos_k.h"
@@ -25,30 +25,15 @@
 // #include "user_config.h"
 #include "user_utils.h"
 
-#ifdef  DEBUG_DEV_INFO_USED
-
+#ifdef DEBUG_DEV_INFO_USED
 /* 产品名称, 与云端同步设备状态时需要  */
-static char sg_product_id[MAX_SIZE_OF_PRODUCT_ID + 1]	 = "PRODUCT_ID";
+static const char sg_product_id[MAX_SIZE_OF_PRODUCT_ID + 1]	 = "";
 /* 设备名称, 与云端同步设备状态时需要 */
-static char sg_device_name[MAX_SIZE_OF_DEVICE_NAME + 1]  = "YOUR_DEVICE_NAME";
-
-#ifdef DEV_DYN_REG_ENABLED
-/* 产品密钥, 若使能动态注册功能，控制台生成，必填。若不使能，则不用赋值  */
-static char sg_product_secret[MAX_SIZE_OF_PRODUCT_SECRET + 1]  = "YOUR_PRODUCT_SECRET";
-#endif
-
-#ifdef AUTH_MODE_CERT
-/* 客户端证书文件名  非对称加密使用, TLS 证书认证方式*/
-static char sg_device_cert_file_name[MAX_SIZE_OF_DEVICE_CERT_FILE_NAME + 1]      = "YOUR_DEVICE_NAME_cert.crt";
-/* 客户端私钥文件名 非对称加密使用, TLS 证书认证方式*/
-static char sg_device_privatekey_file_name[MAX_SIZE_OF_DEVICE_KEY_FILE_NAME + 1] = "YOUR_DEVICE_NAME_private.key";
-#else
+static const char sg_device_name[MAX_SIZE_OF_DEVICE_NAME + 1]  = "";
 /* 设备密钥, TLS PSK认证方式*/
-static char sg_device_secret[MAX_SIZE_OF_DEVICE_SERC + 1] = "YOUR_IOT_PSK";
+static const char sg_device_secret[MAX_SIZE_OF_DEVICE_SERC + 1] = "";
 #endif
 
-
-#endif
 
 void HAL_Printf(_IN_ const char *fmt, ...)
 {
@@ -287,51 +272,16 @@ void HAL_MutexUnlock(_IN_ void* mutex)
 
 int HAL_SetDevInfo(void *pdevInfo)
 {
-	int ret = QCLOUD_RET_SUCCESS;;
-	DeviceInfo *devInfo = (DeviceInfo *)pdevInfo;
-	
-
-	if(NULL == pdevInfo){
-		return QCLOUD_ERR_FAILURE;
-	}
-	
-#ifdef DEBUG_DEV_INFO_USED
-	memset(sg_product_id, '\0', MAX_SIZE_OF_PRODUCT_ID);	
-	memset(sg_device_name, '\0', MAX_SIZE_OF_DEVICE_NAME);
-	
-	strncpy(sg_product_id, devInfo->product_id, MAX_SIZE_OF_PRODUCT_ID);
-	strncpy(sg_device_name, devInfo->device_name, MAX_SIZE_OF_DEVICE_NAME);
-	
-#ifdef DEV_DYN_REG_ENABLED
-	memset(sg_product_secret, '\0', MAX_SIZE_OF_PRODUCT_SECRET);
-	strncpy(sg_product_secret, devInfo->product_secret, MAX_SIZE_OF_PRODUCT_KEY);
-#endif
-	
-#ifdef 	AUTH_MODE_CERT
-	memset(sg_device_cert_file_name, '\0', MAX_SIZE_OF_DEVICE_CERT_FILE_NAME);
-	memset(sg_device_privatekey_file_name, '\0', MAX_SIZE_OF_DEVICE_KEY_FILE_NAME);
-	
-	strncpy(sg_device_cert_file_name, devInfo->devCertFileName, MAX_SIZE_OF_DEVICE_CERT_FILE_NAME);
-	strncpy(sg_device_privatekey_file_name, devInfo->devPrivateKeyFileName, MAX_SIZE_OF_DEVICE_KEY_FILE_NAME);
-#else
-	memset(sg_device_secret, '\0', MAX_SIZE_OF_DEVICE_SERC);
-	strncpy(sg_device_secret, devInfo->devSerc, MAX_SIZE_OF_DEVICE_SERC);
-#endif
-		
-#else
-	 Log_e("HAL_SetDevInfo is not implement");
-	 (void)devInfo; //eliminate compile warning
-
-	 return QCLOUD_ERR_FAILURE;
-
-#endif
-
-	return ret;
+	// 暂不支持
+	return QCLOUD_ERR_FAILURE;
 }
 
 int HAL_GetDevInfo(void *pdevInfo)
 {
 	int ret = QCLOUD_RET_SUCCESS;
+	const char *p_product_id = (const char *)PRODUCT_ID_FLASH_ADDR;
+	const char *p_device_name = (const char *)DEVICE_NAME_FLASH_ADDR;
+	const char *p_device_secret = (const char *)DEVICE_SECRET_FLASH_ADDR;
 	DeviceInfo *devInfo = (DeviceInfo *)pdevInfo;
 
 	if(NULL == pdevInfo){
@@ -339,29 +289,23 @@ int HAL_GetDevInfo(void *pdevInfo)
 	}
 	
 	memset((char *)devInfo, '\0', sizeof(DeviceInfo));	
-	
-#ifdef DEBUG_DEV_INFO_USED	
 
-	strncpy(devInfo->product_id, sg_product_id, MAX_SIZE_OF_PRODUCT_ID);
-	strncpy(devInfo->device_name, sg_device_name, MAX_SIZE_OF_DEVICE_NAME);
-	
-#ifdef DEV_DYN_REG_ENABLED
-	memset(devInfo->product_secret, '\0', MAX_SIZE_OF_PRODUCT_SECRET);
-	strncpy(devInfo->product_secret, sg_product_secret, MAX_SIZE_OF_PRODUCT_SECRET);
-#endif	
-	
-#ifdef 	AUTH_MODE_CERT
-	strncpy(devInfo->devCertFileName, sg_device_cert_file_name, MAX_SIZE_OF_DEVICE_CERT_FILE_NAME);
-	strncpy(devInfo->devPrivateKeyFileName, sg_device_privatekey_file_name, MAX_SIZE_OF_DEVICE_KEY_FILE_NAME);
-#else
-	strncpy(devInfo->devSerc, sg_device_secret, MAX_SIZE_OF_DEVICE_SERC);
-#endif 
+	if (p_product_id[0] == 0x00 || p_product_id[0] == 0xFF ||
+		p_device_name[0] == 0x00 || p_device_name[0] == 0xFF ||
+		p_device_secret[0] == 0x00 || p_device_secret[0] == 0xFF)
+	{
+		#ifdef DEBUG_DEV_INFO_USED
+		p_product_id = sg_product_id;
+		p_device_name = sg_device_name;
+		p_device_secret = sg_device_secret;
+		#else
+		return QCLOUD_ERR_FAILURE;
+		#endif
+	}
 
-#else
-   Log_e("HAL_GetDevInfo is not implement");
-
-   return QCLOUD_ERR_FAILURE;
-#endif
+	strncpy(devInfo->product_id, p_product_id, MAX_SIZE_OF_PRODUCT_ID);
+	strncpy(devInfo->device_name, p_device_name, MAX_SIZE_OF_DEVICE_NAME);
+	strncpy(devInfo->devSerc, p_device_secret, MAX_SIZE_OF_DEVICE_SERC);
 
 	return ret;
 }

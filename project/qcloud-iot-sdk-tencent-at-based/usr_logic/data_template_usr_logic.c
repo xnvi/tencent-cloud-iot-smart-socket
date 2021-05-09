@@ -17,7 +17,14 @@
 #include "at_client.h"
 #include "string.h"
 #include "data_config.c"
+#include "hlw8032.h"
 
+extern uint32_t g_do_upload_property;
+extern electric_info g_power_info;
+extern uint32_t g_switch;
+extern uint32_t g_count_down;
+extern uint32_t g_count_down_update;
+extern uint32_t g_overcurrent_event;
 
 static bool sg_control_msg_arrived = false;
 static char sg_data_report_buffer[AT_CMD_MAX_LEN];
@@ -153,16 +160,46 @@ static void OnReportReplyCallback(void *pClient, Method method, ReplyAck replyAc
 
 
 /*用户需要实现的下行数据的业务逻辑,待用户实现*/
-static void deal_down_stream_user_logic(void *pClient, ProductDataDefine   * pData)
+static void deal_down_stream_user_logic(void *pClient, ProductDataDefine *pData)
 {
-	Log_d("someting about your own product logic wait to be done");
+	// Log_d("someting about your own product logic wait to be done");
+	printf("power_switch %d, count_down %d \r\n", pData->m_power_switch, pData->m_count_down);
+	g_switch = pData->m_power_switch;
+
+	if (pData->m_count_down != 0)
+	{
+		g_count_down = pData->m_count_down;
+		g_count_down_update = 1;
+	}
 }
 
 /*用户需要实现的上行数据的业务逻辑,此处仅供示例*/
 static int deal_up_stream_user_logic(void *pClient, DeviceProperty *pReportDataList[], int *pCount)
 {
 	int i, j;
-	
+
+	if (g_do_upload_property)
+	{
+		sg_DataTemplate[0].state = eCHANGED;
+		sg_ProductData.m_power_switch = g_switch;
+
+		sg_DataTemplate[1].state = eCHANGED;
+		sg_ProductData.m_current = g_power_info.current;
+		sg_DataTemplate[2].state = eCHANGED;
+		sg_ProductData.m_voltage = g_power_info.voltage;
+		sg_DataTemplate[3].state = eCHANGED;
+		sg_ProductData.m_power_factor = g_power_info.power_factor;
+		sg_DataTemplate[4].state = eCHANGED;
+		sg_ProductData.m_active_power = g_power_info.active_power;
+		sg_DataTemplate[5].state = eCHANGED;
+		sg_ProductData.m_apparent_power = g_power_info.apparent_power;
+		sg_DataTemplate[6].state = eCHANGED;
+		sg_ProductData.m_total_kwh = (float)g_power_info.total_wh / 1000.0;
+
+		sg_DataTemplate[7].state = eCHANGED;
+		sg_ProductData.m_count_down = g_count_down;
+	}
+
 	//check local property state
 	//_refresh_local_property. if property changed, set sg_DataTemplate[i].state = eCHANGED;
 	
@@ -244,9 +281,17 @@ static void eventPostCheck(void *client)
 	uint32_t eflag;
 	sEvent *pEventList[EVENT_COUNTS];
 	uint8_t event_count;
-		
+	
 	//事件上报
-	IOT_Event_setFlag(client, FLAG_EVENT0|FLAG_EVENT1|FLAG_EVENT2);
+	if (g_overcurrent_event == 1)
+	{
+		IOT_Event_setFlag(client, FLAG_EVENT0);
+		sg_status_report_status = 0;
+		memset(sg_status_report_message, 0, sizeof(sg_status_report_message));
+		strcpy(sg_status_report_message, "overcurrent");
+		g_overcurrent_event = 0;
+	}
+
 	eflag = IOT_Event_getFlag(client);
 	if((EVENT_COUNTS > 0 )&& (eflag > 0))
 	{	
@@ -283,9 +328,9 @@ static int _get_sys_info(void *handle, char *pJsonDoc, size_t sizeOfBuffer)
      	{.key = "module_hardinfo", .type = TYPE_TEMPLATE_STRING, .data = "ESP8266"},
      	{.key = "module_softinfo", .type = TYPE_TEMPLATE_STRING, .data = "V1.0"},
      	{.key = "fw_ver", 		   .type = TYPE_TEMPLATE_STRING, .data = QCLOUD_IOT_AT_SDK_VERSION},
-     	{.key = "imei", 		   .type = TYPE_TEMPLATE_STRING, .data = "11-22-33-44"},
-     	{.key = "lat", 			   .type = TYPE_TEMPLATE_STRING, .data = "22.546015"},
-     	{.key = "lon", 			   .type = TYPE_TEMPLATE_STRING, .data = "113.941125"},
+     	// {.key = "imei", 		   .type = TYPE_TEMPLATE_STRING, .data = "11-22-33-44"},
+     	// {.key = "lat", 			   .type = TYPE_TEMPLATE_STRING, .data = "22.546015"},
+     	// {.key = "lon", 			   .type = TYPE_TEMPLATE_STRING, .data = "113.941125"},
         {NULL, NULL, JINT32}  //结束
 	};
 		
@@ -453,15 +498,16 @@ void data_template_demo_task(void *arg)
 						Log_d("data template reporte success");
 					} else {
 						Log_e("data template reporte failed, err: %d", rc);
-						break;
+						// break; // 上报失败不退出线程
 					}
 				} else {
 					Log_e("construct reporte data failed, err: %d", rc);
-					break;
+					// break; // 上报失败不退出线程
 				}
 		
 			}
 			
+
 			eventPostCheck(client);
 		}				
 	}while (0);
@@ -472,11 +518,12 @@ void data_template_demo_task(void *arg)
 
 void data_template_sample(void)
 {
-	osThreadId demo_threadId;
+	// osThreadId demo_threadId;
+	void *demo_threadId;
 	
 #ifdef OS_USED
-	hal_thread_create(&demo_threadId, 512, osPriorityNormal, data_template_demo_task, NULL);
-	hal_thread_destroy(NULL);
+	hal_thread_create(&demo_threadId, 2048, 4, data_template_demo_task, NULL);
+	// hal_thread_destroy(NULL);
 #else
 	#error os should be used just now
 #endif

@@ -4,7 +4,7 @@
 #define AUTH_MODE_KEY
 
 #define EVENT_POST_ENABLED
-#define ACTION_ENABLED
+// #define ACTION_ENABLED // 目前没有使用 action，以后有需要再开发相关功能
 #define DEBUG_DEV_INFO_USED
 
 #define OS_USED

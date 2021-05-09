@@ -31,7 +31,6 @@ void user_task(void *arg)
 	uint32_t power_timer_old = 0;
 	uint32_t total_wh = 0;
 	uint32_t color = 0;
-	int32_t i = 0;
 
 	printf("user task start\r\n");
 
@@ -61,8 +60,8 @@ void user_task(void *arg)
 		}
 
 		// 保存累计电力，延长flash寿命，只有每分钟且用电量变化时才写入
-		// if (HAL_GetTick() - wh_timer_old > 60 * 1000 && total_wh != g_power_info.total_wh)
-		if (0)
+		if (HAL_GetTick() - wh_timer_old > 60 * 1000 && total_wh != g_power_info.total_wh)
+		// if (0)
 		{
 			wh_timer_old = HAL_GetTick();
 			total_wh = g_power_info.total_wh;

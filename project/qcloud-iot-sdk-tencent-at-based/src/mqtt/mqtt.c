@@ -67,10 +67,10 @@ eAtResault register_sub_topic(SubscribeParams* subpara)
 		
         if (i < QCLOUD_IOT_MAX_SUB_TOPIC) 
 		{
-			char *pTopic = HAL_Malloc(strlen(subpara->topicFilter));
+			char *pTopic = HAL_Malloc(strlen(subpara->topicFilter) + 1);
 			if(pTopic)
 			{
-				memset(pTopic, 0, strlen(subpara->topicFilter));
+				memset(pTopic, 0, strlen(subpara->topicFilter) + 1);
 				strcpy(pTopic, subpara->topicFilter);
 	            sg_msg_handlers[i].topicFilter = pTopic;
 	            sg_msg_handlers[i].fp = subpara->fp;

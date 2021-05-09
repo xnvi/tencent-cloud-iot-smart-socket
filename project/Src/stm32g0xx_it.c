@@ -23,6 +23,13 @@
 #include "stm32g0xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32g0xx_ll_usart.h"
+#include "stm32g0xx_ll_tim.h"
+#include "hlw8032.h"
+#include "key.h"
+// #include "at_client.h"
+#include "ringbuff.h"
+#include "tos_k.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,6 +55,7 @@
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 
+extern sRingbuff g_ring_buff;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -56,6 +64,8 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern TIM_HandleTypeDef htim7;
+extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
 
@@ -108,10 +118,11 @@ void SVC_Handler(void)
 /**
   * @brief This function handles Pendable request for system service.
   */
-void PendSV_Handler(void)
+__weak void PendSV_Handler(void)
 {
   /* USER CODE BEGIN PendSV_IRQn 0 */
-
+// 使用CubeMX程新生成工程后需要在这个函数前面添加 __weak
+// 因为TOS已经实现了这个函数用于上下文切换
   /* USER CODE END PendSV_IRQn 0 */
   /* USER CODE BEGIN PendSV_IRQn 1 */
 
@@ -128,7 +139,12 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+  if(tos_knl_is_running())
+  {
+      tos_knl_irq_enter();
+      tos_tick_handler();
+      tos_knl_irq_leave();
+  }
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -140,15 +156,57 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles TIM7 global interrupt.
+  */
+void TIM7_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM7_IRQn 0 */
+
+  /* USER CODE END TIM7_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim7);
+  /* USER CODE BEGIN TIM7_IRQn 1 */
+	key_scan();
+  /* USER CODE END TIM7_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt / USART2 wake-up interrupt through EXTI line 26.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+	uint8_t ch;
+
+  /* USER CODE END USART2_IRQn 0 */
+  HAL_UART_IRQHandler(&huart2);
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+	if(LL_USART_IsActiveFlag_RXNE_RXFNE(USART2))
+	{
+		ch = LL_USART_ReceiveData8(USART2);
+	}
+	ring_buff_push_data(&g_ring_buff, &ch, 1);
+
+  /* USER CODE END USART2_IRQn 1 */
+}
+
+/**
   * @brief This function handles USART3 and USART4 interrupts.
   */
 void USART3_4_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_4_IRQn 0 */
+	uint8_t ch;
 
   /* USER CODE END USART3_4_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_4_IRQn 1 */
+
+	if(LL_USART_IsActiveFlag_RXNE_RXFNE(USART3))
+	{
+		ch = LL_USART_ReceiveData8(USART3);
+	}
+	hlw8032_recv(ch);
 
   /* USER CODE END USART3_4_IRQn 1 */
 }

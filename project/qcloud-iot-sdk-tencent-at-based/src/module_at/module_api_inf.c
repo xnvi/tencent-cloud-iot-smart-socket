@@ -690,7 +690,8 @@ eAtResault wifi_connect(const char *ssid, const char *pw)
     clearFlag(WIFI_CON_FLAG);
 	resp = at_create_resp(128, 0, CMD_TIMEOUT_MS);
 
-	if(QCLOUD_RET_SUCCESS !=  at_exec_cmd(resp, "AT+CWJAP=\"%s\",\"%s\"",ssid, pw))		
+	if(QCLOUD_RET_SUCCESS !=  at_exec_cmd(resp, "AT+CWJAP")) // 连接至上次的AP	
+	// if(QCLOUD_RET_SUCCESS !=  at_exec_cmd(resp, "AT+CWJAP=\"%s\",\"%s\"",ssid, pw))		
 	{
 		Log_e("cmd AT+CWJAP exec err");
 		//result = QCLOUD_ERR_FAILURE;
@@ -791,21 +792,22 @@ eAtResault module_register_network(eModuleType eType)
 #ifdef MODULE_TYPE_ESP8266	
 	if(eType == eMODULE_ESP8266)
 	{
-		#define WIFI_SSID	"L-0426"
-		#define WIFI_PW		"qazwsx11"
+		// #define WIFI_SSID	"L-0426"
+		// #define WIFI_PW		"qazwsx11"
 
 		result = wifi_set_cwmod(1);
 		if(QCLOUD_RET_SUCCESS != result)
 		{
-			Log_e("set cwmode err,ret:%d", result);	
+			Log_e("set cwmode err,ret:%d", result);
 		}
 
 		/*此处示例传递热点名字直接联网，通常的做法是特定产品根据特定的事件（譬如按键）触发wifi配网（一键配网/softAP）*/
-		result = wifi_connect(WIFI_SSID, WIFI_PW);
-		if(QCLOUD_RET_SUCCESS != result)
-		{
-			Log_e("wifi connect fail,ret:%d", result);	
-		}
+		// result = wifi_connect(WIFI_SSID, WIFI_PW);
+		// result = wifi_connect("Redmi_D99D", "12346789");
+		// if(QCLOUD_RET_SUCCESS != result)
+		// {
+		// 	Log_e("wifi connect fail,ret:%d", result);	
+		// }
 	}
 #endif
 

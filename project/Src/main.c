@@ -23,7 +23,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stm32g0xx_ll_gpio.h"
+#include "stm32g0xx_ll_usart.h"
+#include "stm32g0xx_ll_tim.h"
+#include "tos_k.h"
+#include "user_task.h"
+// #include "ws2812_driver.h"
+// #include "user_utils.h"
+// #include "hlw8032.h"
+// #include "key.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,13 +50,16 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim7;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-
+#define USER_TASK_STACK_SIZE 512
+k_stack_t user_task_stack[USER_TASK_STACK_SIZE];
+k_task_t user_task_t;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,12 +69,34 @@ static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
-
+extern void data_template_sample(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// 重定向printf输出
+int fputc(int ch, FILE *f)
+{
+	// stm32f1 系列
+	// while((USART1->SR & 0x40) == 0);//等待上一次串口数据发送完成
+	// USART1->DR = (unsigned char)ch;//写入要发送的数据
+	// return ch;
+
+	// stm32g0 系列
+	while(LL_USART_IsActiveFlag_TXE_TXFNF(USART1) == 0); // 等待数据发送寄存器空
+	LL_USART_TransmitData8(USART1, ch); // 写入要发送的数据
+	// while(LL_USART_IsActiveFlag_TC(USART1) == 0); // 等待发送完成，严谨一点可以把这个加上
+	return ch;
+}
+
+// int fputc(int ch, FILE *f)
+// {
+//   HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 10);
+//   return ch;
+// }
 
 /* USER CODE END 0 */
 
@@ -99,7 +132,48 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
+
+	// 中断设置
+	LL_USART_EnableIT_RXNE_RXFNE(USART2);
+	HAL_NVIC_SetPriority(USART2_IRQn, 2, 0); // 只有主优先级，串口2优先级设置较低
+	HAL_NVIC_EnableIRQ(USART2_IRQn);
+
+	LL_USART_EnableIT_RXNE_RXFNE(USART3);
+	HAL_NVIC_SetPriority(USART3_4_IRQn, 3, 0); // 只有主优先级，串口3优先级设置最低
+	HAL_NVIC_EnableIRQ(USART3_4_IRQn);
+
+	LL_TIM_EnableIT_UPDATE(TIM7); // 开启TIM7中断
+	LL_TIM_EnableCounter(TIM7); // 启动定时器
+	HAL_NVIC_SetPriority(TIM7_IRQn, 3, 0); // 只有主优先级，串口3优先级设置最低
+	HAL_NVIC_EnableIRQ(TIM7_IRQn);
+	// HAL_TIM_Base_Start_IT(&htim7);
+
+
+	// 其他初始化
+	// TODO
+
+
+	// 初始化 Tencent OS Tiny，启动任务
+	tos_knl_init();
+
+	// 先起用户程序
+	tos_task_create(&user_task_t,
+					"user_task",
+					(k_task_entry_t)user_task,
+					NULL,
+					3,
+					user_task_stack,
+					USER_TASK_STACK_SIZE,
+					0);
+
+	// 最后起数据模板
+	data_template_sample();
+	
+	printf("tos start\r\n");
+	tos_knl_start();
+
 
   /* USER CODE END 2 */
 
@@ -215,6 +289,44 @@ static void MX_TIM3_Init(void)
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 63;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 2999;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
 
 }
 

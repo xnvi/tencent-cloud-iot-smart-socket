@@ -26,7 +26,7 @@
 
 
 #ifdef OS_USED
-#include "cmsis_os.h"
+// #include "cmsis_os.h" // 本工程中不使用cmsis接口
 #endif
 
 typedef struct _Timer_ {
