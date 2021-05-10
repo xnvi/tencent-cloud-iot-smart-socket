@@ -166,13 +166,13 @@ void user_task(void *arg)
 			{
 				// É«»·0-1536£¬ÑÕÉ«ÒÀ´ÎÊÇºì»ÆÂÌÇàÀ¶×Ïºì
 				// 0ºì£¬255»Æ£¬512ÂÌ£¬768Çà£¬1024À¶£¬1280×Ï£¬1536ºì
-				if (g_power_info.active_power > 850.0)
+				if (g_power_info.active_power > 800.0)
 				{
 					color_breathe(0x00FF0000);
 				}
 				else
 				{
-					color = color_ring(850 - (int)g_power_info.active_power);
+					color = color_ring(1024 - (int)g_power_info.active_power);
 					color_breathe(color);
 				}
 			}
